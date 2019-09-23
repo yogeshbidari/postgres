@@ -1,0 +1,127 @@
+apiVersion: v1
+kind: Service
+metadata:
+   name: postgres
+   namespace: qa
+   labels:
+      service: postgres
+      env: qa
+spec:
+   clusterIP: None
+   ports:
+     - name: postgres
+       port: 5432
+       targetPort: postgres
+   publishNotReadyAddresses: true
+   selector:
+      service: postgres
+      env: qa
+   type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+   name: postgres-ui
+   namespace: qa
+   annotations:
+      cloud.google.com/load-balancer-type: "Internal"
+   labels:
+      service: postgres
+      env: qa
+spec:
+   externalTrafficPolicy: Cluster
+   ports:
+     - name: postgres
+       nodePort: 30222
+       port: 5432
+       targetPort: postgres
+   selector:
+      service: postgres
+      env: qa
+   type: LoadBalancer
+   loadBalancerIP: "10.151.0.17"
+   loadBalancerSourceRanges:
+      - 10.0.0.0/8
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+   name: postgres
+   namespace: qa
+   labels:
+     service: postgres
+spec:
+   serviceName: postgres
+   replicas: 1
+   updateStrategy:
+      type: RollingUpdate
+   selector:
+      matchLabels:
+         service: postgres
+         env: qa
+   template:
+      metadata:
+         labels:
+            service: postgres
+            env: qa
+      spec:
+        terminationGracePeriodSeconds: 500
+        containers:
+           - name: postgres
+             image: postgres:10.8
+             imagePullPolicy: Always
+             securityContext:
+               privileged: false
+             ports:
+               - name: postgres
+                 containerPort: 5432
+             env:
+               - name: POD_IP
+                 valueFrom:
+                    fieldRef:
+                       apiVersion: v1
+                       fieldPath: status.podIP
+               - name: POSTGRES_PASSWORD
+                 value: "admin@123"
+                 #                 valueFrom:
+                         #                    secretKeyRef:
+                            #                       name: postgres-secret
+                            #                       key: POSTGRES_PASSWORD
+             livenessProbe:
+                failureThreshold: 10
+                initialDelaySeconds: 1000
+                periodSeconds: 60
+                successThreshold: 1
+                timeoutSeconds: 10
+                exec:
+                   command:
+                      - sh
+                      - -c
+                      - exec pg_isready --host $POD_IP
+             readinessProbe:
+                failureThreshold: 10
+                initialDelaySeconds: 500
+                periodSeconds: 60
+                successThreshold: 1
+                timeoutSeconds: 10
+                exec:
+                   command:
+                      - sh
+                      - -c
+                      - exec pg_isready --host $POD_IP
+             resources:
+                requests:
+                   memory: "2G"
+                   cpu: "0.5"
+                limits:
+                   memory: "3G"
+                   cpu: "0.5"
+                   #                   pids-limit: "5"
+                   #             volumeMounts:
+                   #                - name: postgresql-data
+                   #                  mountPath: /var/lib/postgresql/data
+                   #        volumes:
+                   #        - name: postgresql-data
+                   #          hostpath:
+                   #            path: /tmp
+                   #            type: Directory
