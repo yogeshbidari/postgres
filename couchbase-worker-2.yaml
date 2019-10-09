@@ -1,0 +1,178 @@
+apiVersion: v1
+kind: Service
+metadata:
+   name: couchbase-worker2
+   namespace: dev
+   labels:
+      service: couchbase-worker2
+      env: dev
+spec:
+   clusterIP: None
+   ports:
+     - name: http
+       port: 8091
+       targetPort: http
+     - name: views
+       port: 8092
+       targetPort: views
+     - name: query
+       port: 8093
+       targetPort: query
+     - name: search
+       port: 8094
+       targetPort: search
+     - name: eventing
+       port: 8096
+       targetPort: eventing
+     - name: data-service
+       port: 11210
+       targetPort: data-service
+     - name: epmd
+       port: 4369
+       targetPort: epmd
+     - name: indexer
+       port: 9100
+       targetPort: indexer
+     - name: indexer1
+       port: 9101
+       targetPort: indexer1
+     - name: indexer2
+       port: 9102
+       targetPort: indexer2
+     - name: indexer3
+       port: 9103
+       targetPort: indexer3
+     - name: indexer4
+       port: 9104
+       targetPort: indexer4
+     - name: indexer5
+       port: 9105
+       targetPort: indexer5
+     - name: xdcr
+       port: 9998
+       targetPort: xdcr
+     - name: node-data
+       port: 21101
+       targetPort: node-data
+     - name: indexer6
+       port: 9999
+       targetPort: indexer6
+   publishNotReadyAddresses: true
+   selector:
+      service: couchbase-worker2
+      env: dev
+   type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+   name: couchbase-worker2-ui
+   namespace: dev
+   annotations:
+      service.beta.kubernetes.io/load-balancer-source-ranges: "10.0.0.0/8, 155.201.0.0/16, 167.14.0.0/16"
+   labels:
+      service: couchbase-worker2
+      env: dev
+spec:
+   externalTrafficPolicy: Cluster
+   ports:
+     - name: http
+       nodePort: 30760
+       port: 8091
+       targetPort: http
+     - name: views
+       nodePort: 30761
+       port: 8092
+       targetPort: views
+     - name: query
+       nodePort: 30762
+       port: 8093
+       targetPort: query
+     - name: search
+       nodePort: 30763
+       port: 8094
+       targetPort: search
+     - name: data-service
+       nodePort: 30765
+       port: 11210
+       targetPort: data-service
+   selector:
+      service: couchbase-worker2
+      env: dev
+   type: LoadBalancer
+   loadBalancerIP: "35.196.201.120"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+   name: couchbase-worker2
+   namespace: dev
+   labels:
+      service: couchbase-worker2
+spec:
+   serviceName: couchbase-worker2
+   replicas: 1
+   updateStrategy:
+      type: RollingUpdate
+   selector:
+      matchLabels:
+         service: couchbase-worker2
+         env: dev
+   template:
+      metadata:
+         labels:
+            service: couchbase-worker2
+            env: dev
+      spec:
+         terminationGracePeriodSeconds: 120
+         containers:
+            - name: couchbase-worker2
+              image: couchbase:6.0.0
+              imagePullPolicy: Always
+              securityContext:
+                 privileged: false
+              ports:
+                - name: http
+                  containerPort: 8091
+                - name: views
+                  containerPort: 8092
+                - name: query
+                  containerPort: 8093
+                - name: search
+                  containerPort: 8094
+                - name: eventing
+                  containerPort: 8096
+                - name: data-service
+                  containerPort: 11210
+                - name: epmd
+                  containerPort: 4369
+                - name: indexer
+                  containerPort: 9100
+                - name: indexer1
+                  containerPort: 9101
+                - name: indexer2
+                  containerPort: 9102
+                - name: indexer3
+                  containerPort: 9103
+                - name: indexer4
+                  containerPort: 9104
+                - name: indexer5
+                  containerPort: 9105
+                - name: xdcr
+                  containerPort: 9998
+                - name: node-data
+                  containerPort: 21101
+                - name: indexer6
+                  containerPort: 9999
+              env:
+                - name: TYPE
+                  value: WORKER
+                - name: COUCHBASE_MASTER
+                  value: couchbase-master
+              resources:
+                 requests:
+                    memory: "500m"
+                    cpu: "200m"
+                 limits:
+                    memory: "1G"
+                    cpu: "1"

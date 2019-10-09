@@ -1,0 +1,99 @@
+apiVersion: v1
+kind: Service
+metadata:
+   name: arango
+   namespace: dev
+   labels:
+      service: arango
+      env: dev
+spec:
+   clusterIP: None
+   ports:
+     - name: arango
+       port: 8529
+       targetPort: arango
+   publishNotReadyAddresses: true
+   selector:
+      service: arango
+      env: dev
+   type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+   name: arango-ui
+   namespace: dev
+   annotations:
+      cloud.google.com/load-balancer-type: "Internal"
+   labels:
+      service: arango
+      env: dev
+spec:
+   externalTrafficPolicy: Cluster
+   ports:
+     - name: arango
+       nodePort: 30200
+       port: 9300
+       targetPort: arango
+   selector:
+      service: arango
+      env: dev
+   type: LoadBalancer
+   loadBalancerIP: "10.131.0.16"
+   loadBalancerSourceRanges:
+      - 10.0.0.0/8
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+   name: arango
+   namespace: dev
+   labels:
+      service: arango
+      env: dev
+spec:
+   serviceName: arango
+   replicas: 1
+   updateStrategy:
+      type: RollingUpdate
+   selector:
+       matchLabels:
+          service: arango
+          env: dev
+   template:
+       metadata:
+          labels:
+             service: arango
+             env: dev
+       spec:
+          terminationGracePeriodSeconds: 180
+          containers:
+             - name: arango
+               image: arangodb:3.3.8
+               imagePullPolicy: Always
+               securityContext:
+                 privileged: false 
+               ports:
+                  - containerPort: 8529
+                    name: arango
+               env:
+                 - name: ARANGO_ROOT_PASSWORD
+                   value: "admin@123"
+                 - name: ARANGO_STORAGE_ENGINE
+                   value: "rocksdb"
+               resources:
+                  requests:
+                     memory: "2G"
+                     cpu: "300m"
+                  limits:
+                     memory: "3G"
+                     cpu: "600m"
+                     #               volumeMounts:
+                     #   - name: arango-data
+                     #mountPath: /var/lib/arangodb3
+                     #volumeClaimTemplates:
+                     #- metadata:
+                     # name: arango-data
+                     #spec:
+                     #accessModes:
+                     #- ReadWriteOnce

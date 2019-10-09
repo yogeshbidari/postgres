@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: Service
+metadata:
+   name: nifi
+   namespace: dev
+   annotations:
+      cloud.google.com/load-balancer-type: "Internal"
+   labels:
+      service: nifi
+      env: dev
+spec:
+   ports:
+      - name: nifi
+        port: 8079
+        targetPort: 8080
+   selector:
+      service: nifi
+      env: dev
+   type: LoadBalancer
+   loadBalancerIP: "10.131.0.22"
+   loadBalancerSourceRanges:
+      - 10.0.0.0/8
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+   name: nifi
+   namespace: dev
+   labels:
+      service: nifi
+      env: dev
+spec:
+   serviceName: nifi
+   replicas: 1
+   updateStrategy:
+      type: RollingUpdate
+   selector:
+      matchLabels:
+         service: nifi
+         env: dev
+   template:
+      metadata:
+         labels:
+            service: nifi
+            env: dev
+      spec:
+         terminationGracePeriodSeconds: 40
+         containers:
+            - name: nifi
+              image: apache/nifi:1.9.2
+              imagePullPolicy: Always
+              securityContext:
+                 privileged: false
+              ports:
+                 - name: nifi
+                   containerPort: 8080
+              resources:
+                 requests:
+                    memory: "500m"
+                    cpu: "200m"
+                 limits:
+                    memory: "1G"
+                    cpu: "300m"
