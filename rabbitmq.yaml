@@ -1,0 +1,108 @@
+apiVersion: v1
+kind: Service
+metadata:
+   name: rabbitmq
+   namespace: dev
+   labels:
+      service: rabbitmq
+      env: dev
+spec:
+   clusterIP: None
+   ports:
+     - name: management-ui
+       port: 15672
+       targetPort: management-ui
+     - name: amqp-with-tls
+       port: 5671
+       targetPort: amqp-with-tls
+     - name: without-tls
+       port: 5672
+       targetPort: without-tls
+   publishNotReadyAddresses: true
+   selector:
+      service: rabbitmq
+      env: dev
+   type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+   name: rabbitmq-ui
+   annotations:
+      cloud.google.com/load-balancer-type: "Internal"
+   namespace: dev
+   labels:
+      service: rabbitmq
+      env: dev
+spec:
+   externalTrafficPolicy: Cluster
+   ports:
+     - name: management-ui
+       nodePort: 30225
+       port: 15672
+       targetPort: management-ui
+     - name: amqp-with-tls
+       nodePort: 30266
+       port: 5671
+       targetPort: amqp-with-tls
+     - name: without-tls
+       nodePort: 30227
+       port: 5672
+       targetPort: without-tls
+   selector:
+      service: rabbitmq
+      env: dev
+   type: LoadBalancer
+   loadBalancerIP: "10.131.0.18"
+   loadBalancerSourceRanges:
+      - 10.0.0.0/8
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+   name: rabbitmq
+   namespace: dev
+   labels:
+      service: rabbitmq
+      env: dev
+spec:
+   serviceName: rabbitmq
+   replicas: 1
+   updateStrategy:
+      type: RollingUpdate
+   selector:
+       matchLabels:
+          service: rabbitmq
+          env: dev
+   template:
+      metadata:
+         labels:
+            service: rabbitmq
+            env: dev
+      spec:
+         terminationGracePeriodSeconds: 40
+         containers:
+            - name: rabbitmq
+              image: rabbitmq
+              imagePullPolicy: Always
+              securityContext:
+                 privileged: false
+              ports:
+                - name: management-ui
+                  containerPort: 15672
+                - name: amqp-with-tls
+                  containerPort: 5671
+                - name: without-tls
+                  containerPort: 5672
+              env:
+                - name: RABBITMQ_DEFAULT_USER
+                  value: rabbit
+                - name: RABBITMQ_DEFAULT_PASS
+                  value: admin@123
+              resources:
+                 requests:
+                    memory: "500M"
+                    cpu: "100m"
+                 limits:
+                    memory: "1G"
+                    cpu: "200m"
